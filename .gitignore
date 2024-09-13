@@ -1,0 +1,26 @@
+.next
+.idea
+.bin
+.env
+/dist
+/docs
+/gen
+/logs
+.vercel
+debug.log
+/.cache
+.PID
+
+.vscode
+
+node_modules/
+/.gradle/
+
+.devops/.temp/
+
+# proto
+/.proto_vendor
+/api/*
+!/api/*.*
+!/api/*_v1
+!/api/*_v2
