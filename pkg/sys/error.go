@@ -2,8 +2,7 @@ package sys
 
 import (
 	"github.com/pkg/errors"
-
-	"github.com/olezhek28/platform_common/pkg/sys/codes"
+	"github.com/t34-dev/go-utils/pkg/sys/codes"
 )
 
 type commonError struct {

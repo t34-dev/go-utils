@@ -3,15 +3,14 @@ package pg
 import (
 	"context"
 	"fmt"
+	"github.com/t34-dev/go-utils/pkg/db"
+	"github.com/t34-dev/go-utils/pkg/db/prettier"
 	"log"
 
 	"github.com/georgysavva/scany/pgxscan"
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-
-	"github.com/olezhek28/platform_common/pkg/db"
-	"github.com/olezhek28/platform_common/pkg/db/prettier"
 )
 
 type key string

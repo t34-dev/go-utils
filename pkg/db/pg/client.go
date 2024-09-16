@@ -2,11 +2,10 @@ package pg
 
 import (
 	"context"
+	"github.com/t34-dev/go-utils/pkg/db"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
-
-	"github.com/olezhek28/platform_common/pkg/db"
 )
 
 type pgClient struct {
