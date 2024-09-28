@@ -5,21 +5,24 @@ import (
 	"github.com/t34-dev/go-utils/pkg/db"
 
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/pkg/errors"
 )
+
+type ConnectFunc func(ctx context.Context) (*pgxpool.Pool, error)
+type LogFunc func(ctx context.Context, q db.Query, args ...interface{})
 
 type pgClient struct {
 	masterDBC db.DB
 }
 
-func New(ctx context.Context, dsn string) (db.Client, error) {
-	dbc, err := pgxpool.Connect(ctx, dsn)
+func New(ctx context.Context, connector ConnectFunc, logger *LogFunc) (db.Client, error) {
+	dbc, err := connector(ctx)
 	if err != nil {
-		return nil, errors.Errorf("failed to connect to db: %v", err)
+		return nil, err
 	}
 
+	masterDBC := NewDB(dbc, logger)
 	return &pgClient{
-		masterDBC: &pg{dbc: dbc},
+		masterDBC: masterDBC,
 	}, nil
 }
 
