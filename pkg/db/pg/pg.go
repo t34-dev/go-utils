@@ -19,24 +19,24 @@ const (
 )
 
 type pg struct {
-	dbc      *pgxpool.Pool
-	logQuery LogFunc
+	dbc     *pgxpool.Pool
+	LogFunc LogFunc
 }
 
 func NewDB(dbc *pgxpool.Pool, logFunc *LogFunc) db.DB {
 	c := &pg{
+		LogFunc: LogFunc(func(ctx context.Context, q db.Query, args ...interface{}) {
+			if logFunc != nil {
+				(*logFunc)(ctx, q, args...)
+			}
+		}),
 		dbc: dbc,
-	}
-	if nil == logFunc {
-		c.logQuery = logDefault
-	} else {
-		c.logQuery = *logFunc
 	}
 	return c
 }
 
 func (p *pg) ScanOneContext(ctx context.Context, dest interface{}, q db.Query, args ...interface{}) error {
-	p.logQuery(ctx, q, args...)
+	p.LogFunc(ctx, q, args...)
 
 	row, err := p.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -47,7 +47,7 @@ func (p *pg) ScanOneContext(ctx context.Context, dest interface{}, q db.Query, a
 }
 
 func (p *pg) ScanAllContext(ctx context.Context, dest interface{}, q db.Query, args ...interface{}) error {
-	p.logQuery(ctx, q, args...)
+	p.LogFunc(ctx, q, args...)
 
 	rows, err := p.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -58,7 +58,7 @@ func (p *pg) ScanAllContext(ctx context.Context, dest interface{}, q db.Query, a
 }
 
 func (p *pg) ExecContext(ctx context.Context, q db.Query, args ...interface{}) (pgconn.CommandTag, error) {
-	p.logQuery(ctx, q, args...)
+	p.LogFunc(ctx, q, args...)
 
 	tx, ok := ctx.Value(TxKey).(pgx.Tx)
 	if ok {
@@ -69,7 +69,7 @@ func (p *pg) ExecContext(ctx context.Context, q db.Query, args ...interface{}) (
 }
 
 func (p *pg) QueryContext(ctx context.Context, q db.Query, args ...interface{}) (pgx.Rows, error) {
-	p.logQuery(ctx, q, args...)
+	p.LogFunc(ctx, q, args...)
 
 	tx, ok := ctx.Value(TxKey).(pgx.Tx)
 	if ok {
@@ -80,7 +80,7 @@ func (p *pg) QueryContext(ctx context.Context, q db.Query, args ...interface{}) 
 }
 
 func (p *pg) QueryRowContext(ctx context.Context, q db.Query, args ...interface{}) pgx.Row {
-	p.logQuery(ctx, q, args...)
+	p.LogFunc(ctx, q, args...)
 
 	tx, ok := ctx.Value(TxKey).(pgx.Tx)
 	if ok {
@@ -106,7 +106,7 @@ func MakeContextTx(ctx context.Context, tx pgx.Tx) context.Context {
 	return context.WithValue(ctx, TxKey, tx)
 }
 
-func logDefault(ctx context.Context, q db.Query, args ...interface{}) {
+func LoggerDefault(ctx context.Context, q db.Query, args ...interface{}) {
 	prettyQuery := prettier.Pretty(q.QueryRaw, prettier.PlaceholderDollar, args...)
 	log.Println(
 		ctx,

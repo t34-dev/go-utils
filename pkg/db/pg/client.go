@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"errors"
 	"github.com/t34-dev/go-utils/pkg/db"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -14,13 +15,12 @@ type pgClient struct {
 	masterDBC db.DB
 }
 
-func New(ctx context.Context, connector ConnectFunc, logger *LogFunc) (db.Client, error) {
-	dbc, err := connector(ctx)
-	if err != nil {
-		return nil, err
+func New(pool *pgxpool.Pool, logger *LogFunc) (db.Client, error) {
+	if pool == nil {
+		return nil, errors.New("pool is nil")
 	}
 
-	masterDBC := NewDB(dbc, logger)
+	masterDBC := NewDB(pool, logger)
 	return &pgClient{
 		masterDBC: masterDBC,
 	}, nil
