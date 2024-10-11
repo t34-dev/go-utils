@@ -1,4 +1,4 @@
-package http
+package pkg
 
 import (
 	"fmt"
@@ -16,11 +16,11 @@ type ProxyStatus struct {
 }
 
 type Client struct {
-	proxies      []ProxyStatus
-	client       *resty.Client
-	mu           sync.Mutex
-	currentProxy int
-	logFunc      LogFunc
+	proxies           []ProxyStatus
+	client            *resty.Client
+	mu                sync.Mutex
+	currentProxyIndex int
+	logFunc           LogFunc
 }
 
 // LogFunc defines the signature for the logging function
@@ -63,8 +63,9 @@ func WithLogFunc(logFunc LogFunc) ClientOption {
 
 func NewClient(options ...ClientOption) *Client {
 	pc := &Client{
-		client:  resty.New(),
-		logFunc: func(level, msg string, fields ...interface{}) {}, // Use a no-op log function by default
+		currentProxyIndex: -1,
+		client:            resty.New(),
+		logFunc:           func(level, msg string, fields ...interface{}) {}, // Use a no-op log function by default
 	}
 	logger := &customLogger{
 		logFunc:    pc.logFunc,
@@ -105,6 +106,31 @@ func getHealthyProxy(addr *url.URL) string {
 	u += addr.Host + ":" + addr.Port()
 	return u
 }
+func (pc *Client) findWorkProxy() int {
+	startIndex := pc.currentProxyIndex + 1
+	if len(pc.proxies) <= startIndex {
+		return -1 // возвращаем -1, если массив короче 5 элементов
+	}
+
+	for i := startIndex; i < len(pc.proxies); i++ {
+		if pc.proxies[i].Working {
+			return i // возвращаем индекс первого найденного объекта с OK = true
+		}
+	}
+
+	return -1 // возвращаем -1, если не найдено объекта с OK = true
+}
+func (pc *Client) setWorkProxy() bool {
+	if len(pc.proxies) == 0 {
+		return false
+	}
+	idx := pc.findWorkProxy()
+	if idx == -1 {
+		return false
+	}
+	pc.currentProxyIndex = idx
+	return true
+}
 func (pc *Client) setProxyForClient(index int) error {
 	proxyURL, err := url.Parse(pc.proxies[index].URL)
 	if err != nil {
@@ -115,82 +141,27 @@ func (pc *Client) setProxyForClient(index int) error {
 	return nil
 }
 
-func (pc *Client) Get(url string) (string, error) {
+func (pc *Client) Get(url string) (*resty.Response, error) {
 	if pc.client == nil {
-		return "", fmt.Errorf("client is not initialized")
+		return nil, fmt.Errorf("client is not initialized")
 	}
 
-	err := pc.setProxyForClient(0)
-	if err != nil {
-		return "", err
-	}
-	resp, err := pc.client.R().Get(url)
-	fmt.Println("-----------", resp.String(), err)
-	if err != nil {
-		return "", err
-	}
-
-	if len(pc.proxies) > 0 {
-		var lastError error
-		startIndex := pc.currentProxy
-		for i := 0; i < len(pc.proxies); i++ {
-			currentIndex := (startIndex + i) % len(pc.proxies)
-
-			pc.mu.Lock()
-			if !pc.proxies[currentIndex].Working {
-				pc.logFunc("info", "Skipping non-working proxy", "proxy", pc.proxies[currentIndex].URL)
-				pc.mu.Unlock()
-				continue
-			}
-
-			err := pc.setProxyForClient(currentIndex)
-			if err != nil {
-				pc.proxies[currentIndex].Working = false
-				pc.proxies[currentIndex].Error = err
-				pc.logFunc("error", "Proxy setup failed", "proxy", pc.proxies[currentIndex].URL, "error", err)
-				pc.mu.Unlock()
-				continue
-			}
-			pc.currentProxy = currentIndex
-			pc.mu.Unlock()
-
-			pc.logFunc("info", "Attempting request with proxy", "proxy", pc.proxies[currentIndex].URL)
-
-			maxRetries := 3
-			for retry := 0; retry < maxRetries; retry++ {
-				resp, err := pc.client.R().Get(url)
-				if err == nil {
-					pc.logFunc("info", "Request successful", "proxy", pc.proxies[currentIndex].URL)
-					return resp.String(), nil
-				}
-
-				pc.logFunc("warn", "Request attempt failed",
-					"attempt", retry+1,
-					"proxy", pc.proxies[currentIndex].URL,
-					"error", err)
-
-				lastError = err
-
-				if retry < maxRetries-1 {
-					time.Sleep(time.Second * time.Duration(retry+1))
-				}
-			}
-
-			pc.mu.Lock()
-			pc.proxies[currentIndex].Working = false
-			pc.proxies[currentIndex].Error = fmt.Errorf("max retries reached: %w", lastError)
-			pc.logFunc("error", "Proxy marked as non-working", "proxy", pc.proxies[currentIndex].URL, "error", pc.proxies[currentIndex].Error)
-			pc.mu.Unlock()
-		}
-		return "", fmt.Errorf("all proxies failed, last error: %w", lastError)
+	if len(pc.proxies) == 0 {
+		return pc.client.R().Get(url)
 	} else {
-		pc.logFunc("info", "No proxies provided, making direct request")
-		resp, err := pc.client.R().Get(url)
-		if err != nil {
-			pc.logFunc("error", "Direct request failed", "error", err)
-			return "", err
+		for {
+			ok := pc.setWorkProxy()
+			if !ok {
+				return nil, fmt.Errorf("all proxies are not working")
+			}
+			resp, err := pc.client.R().Get(url)
+			if err != nil {
+				if strings.Contains(err.Error(), "Proxy Authentication Required") {
+					continue
+				}
+			}
+			return resp, nil
 		}
-		return resp.String(), nil
 	}
 }
 func (pc *Client) GetProxyStatus() []ProxyStatus {
