@@ -29,33 +29,22 @@ func GetCurrentIP(client *http.Client) (string, error) {
 
 func main() {
 	proxies := []string{
+		"http://4b077H1:qslYR7aFsO@46.8.56.219:1050",
 		"socks5://4b077H:qslYR7aFsO@46.8.56.219:1051",
-		"http://4b077H:qslYR7aFsO@46.8.56.219:1050",
 	}
 
 	log, _ := zap.NewDevelopment()
 	defer log.Sync()
 
-	logFunc := func(level string, msg string, fields ...interface{}) {
-		zapFields := make([]zap.Field, len(fields)/2)
-		for i := 0; i < len(fields); i += 2 {
-			zapFields[i/2] = zap.Any(fields[i].(string), fields[i+1])
-		}
-		switch level {
-		case "info":
-			log.Info(msg, zapFields...)
-		case "warn":
-			log.Warn(msg, zapFields...)
-		case "error":
-			log.Error(msg, zapFields...)
-		}
-	}
 	client := http.NewClient(
 		http.WithTimeout(15*time.Second),
 		http.WithProxy(proxies),
 		http.WithRetryCount(5),
 		http.WithRetryWaitTime(2*time.Second, 10*time.Second),
-		http.WithLogFunc(logFunc),
+		http.WithLogFunc(func(level string, msg string, fields ...interface{}) {
+			//log.Info(msg, fields...)
+			fmt.Printf("Level: %s, Message: %s, Fields: %v\n", level, msg, fields)
+		}),
 	)
 
 	ip, err := GetCurrentIP(client)
@@ -65,6 +54,7 @@ func main() {
 		fmt.Printf("Current IP: %s\n", ip)
 	}
 
+	fmt.Println("==========")
 	fmt.Println("Proxy elem:")
 	for _, elem := range client.GetProxyStatus() {
 		fmt.Printf("%s: %v, Error: %v\n", elem.URL, elem.Working, elem.Error)
