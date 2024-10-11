@@ -5,27 +5,29 @@ import (
 	"fmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
-	"go.uber.org/zap"
 )
 
 var globalTracer *Tracer
 
 type Tracer struct {
-	logger *zap.Logger
+	logFunc LogFunc
 }
+
+// LogFunc defines the signature for the logging function
+type LogFunc func(msg string, fields ...interface{})
 
 type TracerOption func(*Tracer)
 
-func WithLogger(logger *zap.Logger) TracerOption {
+func WithLogFunc(logFunc LogFunc) TracerOption {
 	return func(t *Tracer) {
-		t.logger = logger
+		t.logFunc = logFunc
 	}
 }
 
 // Init initializes the global tracer and returns an error if initialization fails
 func Init(endpoint, serviceName string, options ...TracerOption) error {
 	t := &Tracer{
-		logger: zap.NewNop(), // Use a no-op logger by default
+		logFunc: func(msg string, fields ...interface{}) {}, // Use a no-op log function by default
 	}
 
 	for _, option := range options {
@@ -44,10 +46,11 @@ func Init(endpoint, serviceName string, options ...TracerOption) error {
 
 	_, err := cfg.InitGlobalTracer(serviceName)
 	if err != nil {
+		t.logFunc("Failed to init tracing", "error", err)
 		return fmt.Errorf("failed to init tracing: %w", err)
 	}
 
-	t.logger.Debug("Tracing initialized", zap.String("endpoint", endpoint), zap.String("service", serviceName))
+	t.logFunc("Tracing initialized", "endpoint", endpoint, "service", serviceName)
 	globalTracer = t
 	return nil
 }
@@ -58,5 +61,10 @@ func TraceFunc(ctx context.Context, operationName string, tags map[string]interf
 	for k, v := range tags {
 		span.SetTag(k, v)
 	}
-	return ctx, func() { span.Finish() }
+	return ctx, func() {
+		span.Finish()
+		if globalTracer != nil {
+			globalTracer.logFunc("Span finished", "operation", operationName)
+		}
+	}
 }
