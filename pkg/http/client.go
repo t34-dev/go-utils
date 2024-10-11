@@ -3,7 +3,6 @@ package http
 import (
 	"fmt"
 	"github.com/go-resty/resty/v2"
-	"go.uber.org/zap"
 	"net/url"
 	"sync"
 	"time"
@@ -20,8 +19,11 @@ type Client struct {
 	client       *resty.Client
 	mu           sync.Mutex
 	currentProxy int
-	logger       *zap.Logger
+	logFunc      LogFunc
 }
+
+// LogFunc defines the signature for the logging function
+type LogFunc func(level string, msg string, fields ...interface{})
 
 type ClientOption func(*Client)
 
@@ -51,9 +53,9 @@ func WithProxy(proxies []string) ClientOption {
 	}
 }
 
-func WithLogger(logger *zap.Logger) ClientOption {
+func WithLogFunc(logFunc LogFunc) ClientOption {
 	return func(c *Client) {
-		c.logger = logger
+		c.logFunc = logFunc
 	}
 }
 
@@ -63,7 +65,7 @@ func NewClient(options ...ClientOption) *Client {
 			SetTimeout(15 * time.Second).
 			SetRetryCount(0).
 			SetLogger(nil),
-		logger: zap.NewNop(), // Use a no-op logger by default
+		logFunc: func(level, msg string, fields ...interface{}) {}, // Use a no-op log function by default
 	}
 
 	for _, option := range options {
@@ -79,7 +81,7 @@ func (pc *Client) setProxyForClient(index int) error {
 		return fmt.Errorf("invalid proxy URL: %v", err)
 	}
 	pc.client.SetProxy(proxyURL.String())
-	pc.logger.Info("Set proxy", zap.String("proxy", proxyURL.String()))
+	pc.logFunc("info", "Set proxy", "proxy", proxyURL.String())
 	return nil
 }
 
@@ -99,27 +101,27 @@ func (pc *Client) Get(url string) (string, error) {
 			if err != nil {
 				pc.proxies[currentIndex].Working = false
 				pc.proxies[currentIndex].Error = err
-				pc.logger.Error("Proxy setup failed", zap.Error(err))
+				pc.logFunc("error", "Proxy setup failed", "error", err)
 				pc.mu.Unlock()
 				continue
 			}
 			pc.currentProxy = currentIndex
 			pc.mu.Unlock()
 
-			pc.logger.Info("Attempting request with proxy", zap.String("proxy", pc.proxies[currentIndex].URL))
+			pc.logFunc("info", "Attempting request with proxy", "proxy", pc.proxies[currentIndex].URL)
 
 			maxRetries := 3
 			for retry := 0; retry < maxRetries; retry++ {
 				resp, err := pc.client.R().Get(url)
 				if err == nil {
-					pc.logger.Info("Request successful", zap.String("proxy", pc.proxies[currentIndex].URL))
+					pc.logFunc("info", "Request successful", "proxy", pc.proxies[currentIndex].URL)
 					return resp.String(), nil
 				}
 
-				pc.logger.Warn("Request attempt failed",
-					zap.Int("attempt", retry+1),
-					zap.String("proxy", pc.proxies[currentIndex].URL),
-					zap.Error(err))
+				pc.logFunc("warn", "Request attempt failed",
+					"attempt", retry+1,
+					"proxy", pc.proxies[currentIndex].URL,
+					"error", err)
 
 				if retry < maxRetries-1 {
 					time.Sleep(time.Second * time.Duration(retry+1))
@@ -133,7 +135,7 @@ func (pc *Client) Get(url string) (string, error) {
 		}
 		return "", fmt.Errorf("all proxies failed")
 	} else {
-		pc.logger.Info("No proxies provided, making direct request")
+		pc.logFunc("info", "No proxies provided, making direct request")
 		resp, err := pc.client.R().Get(url)
 		if err != nil {
 			return "", err

@@ -34,12 +34,28 @@ func main() {
 	}
 
 	log, _ := zap.NewDevelopment()
+	defer log.Sync()
+
+	logFunc := func(level string, msg string, fields ...interface{}) {
+		zapFields := make([]zap.Field, len(fields)/2)
+		for i := 0; i < len(fields); i += 2 {
+			zapFields[i/2] = zap.Any(fields[i].(string), fields[i+1])
+		}
+		switch level {
+		case "info":
+			log.Info(msg, zapFields...)
+		case "warn":
+			log.Warn(msg, zapFields...)
+		case "error":
+			log.Error(msg, zapFields...)
+		}
+	}
 	client := http.NewClient(
 		http.WithTimeout(15*time.Second),
 		http.WithProxy(proxies),
 		http.WithRetryCount(5),
 		http.WithRetryWaitTime(2*time.Second, 10*time.Second),
-		http.WithLogger(log),
+		http.WithLogFunc(logFunc),
 	)
 
 	ip, err := GetCurrentIP(client)
