@@ -2,14 +2,36 @@ package trace
 
 import (
 	"context"
+	"fmt"
 	"github.com/opentracing/opentracing-go"
 	"github.com/uber/jaeger-client-go/config"
 	"go.uber.org/zap"
 )
 
-// Init initializes tracing with jaeger
-// example endpoint: localhost:6831
-func Init(endpoint string, logger *zap.Logger, serviceName string) {
+var globalTracer *Tracer
+
+type Tracer struct {
+	logger *zap.Logger
+}
+
+type TracerOption func(*Tracer)
+
+func WithLogger(logger *zap.Logger) TracerOption {
+	return func(t *Tracer) {
+		t.logger = logger
+	}
+}
+
+// Init initializes the global tracer and returns an error if initialization fails
+func Init(endpoint, serviceName string, options ...TracerOption) error {
+	t := &Tracer{
+		logger: zap.NewNop(), // Use a no-op logger by default
+	}
+
+	for _, option := range options {
+		option(t)
+	}
+
 	cfg := config.Configuration{
 		Sampler: &config.SamplerConfig{
 			Type:  "const",
@@ -22,8 +44,12 @@ func Init(endpoint string, logger *zap.Logger, serviceName string) {
 
 	_, err := cfg.InitGlobalTracer(serviceName)
 	if err != nil {
-		logger.Fatal("failed to init tracing", zap.Error(err))
+		return fmt.Errorf("failed to init tracing: %w", err)
 	}
+
+	t.logger.Debug("Tracing initialized", zap.String("endpoint", endpoint), zap.String("service", serviceName))
+	globalTracer = t
+	return nil
 }
 
 // TraceFunc returns a new context and a function to finish the span.
