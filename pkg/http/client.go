@@ -42,20 +42,24 @@ func WithRetryWaitTime(waitTime, maxWaitTime time.Duration) ClientOption {
 	}
 }
 
-func NewClient(proxies []string, options ...ClientOption) *Client {
+func WithProxy(proxies []string) ClientOption {
+	return func(c *Client) {
+		for _, p := range proxies {
+			c.proxies = append(c.proxies, ProxyStatus{URL: p, Working: true})
+		}
+	}
+}
+
+func NewClient(options ...ClientOption) *Client {
 	pc := &Client{
 		client: resty.New().
 			SetTimeout(15 * time.Second).
-			SetRetryCount(0). // Устанавливаем RetryCount в 0
-			SetLogger(nil),   // Отключаем логгер Resty
+			SetRetryCount(0).
+			SetLogger(nil),
 	}
 
 	for _, option := range options {
 		option(pc)
-	}
-
-	for _, p := range proxies {
-		pc.proxies = append(pc.proxies, ProxyStatus{URL: p, Working: true})
 	}
 
 	return pc
@@ -96,7 +100,6 @@ func (pc *Client) Get(url string) (string, error) {
 
 			log.Printf("Attempting request with proxy: %s", pc.proxies[currentIndex].URL)
 
-			// Реализуем свою логику повторных запросов
 			maxRetries := 3
 			for retry := 0; retry < maxRetries; retry++ {
 				resp, err := pc.client.R().Get(url)
@@ -127,6 +130,7 @@ func (pc *Client) Get(url string) (string, error) {
 		return resp.String(), nil
 	}
 }
+
 func (pc *Client) GetProxyStatus() []ProxyStatus {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
