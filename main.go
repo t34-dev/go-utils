@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/t34-dev/go-utils/pkg/http"
+	"go.uber.org/zap"
 	"time"
 )
 
@@ -32,11 +33,13 @@ func main() {
 		"http://4b077H:qslYR7aFsO@46.8.56.219:1050",
 	}
 
+	log, _ := zap.NewDevelopment()
 	client := http.NewClient(
 		http.WithTimeout(15*time.Second),
 		http.WithProxy(proxies),
-		http.WithRetryCount(2),
+		http.WithRetryCount(5),
 		http.WithRetryWaitTime(2*time.Second, 10*time.Second),
+		http.WithLogger(log),
 	)
 
 	ip, err := GetCurrentIP(client)
@@ -46,8 +49,8 @@ func main() {
 		fmt.Printf("Current IP: %s\n", ip)
 	}
 
-	fmt.Println("Proxy status:")
-	for _, status := range client.GetProxyStatus() {
-		fmt.Printf("%s: %v, Error: %v\n", status.URL, status.Working, status.Error)
+	fmt.Println("Proxy elem:")
+	for _, elem := range client.GetProxyStatus() {
+		fmt.Printf("%s: %v, Error: %v\n", elem.URL, elem.Working, elem.Error)
 	}
 }
