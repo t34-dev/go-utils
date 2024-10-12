@@ -68,7 +68,7 @@ func main() {
 	fmt.Println("==========")
 	fmt.Println("Proxy status after client1:")
 	for _, elem := range proxyStatus {
-		fmt.Printf("%s: Working: %v, Error: %v\n", elem.URL, elem.Working, elem.Error)
+		fmt.Printf("%s: Working: %v, Error: %v\n", proxy.MaskProxyPassword(elem.URL), elem.Working, elem.Error)
 	}
 
 	// Формируем список рабочих прокси
@@ -101,6 +101,6 @@ func main() {
 	fmt.Println("==========")
 	fmt.Println("Final proxy status:")
 	for _, elem := range finalProxyStatus {
-		fmt.Printf("%s: Working: %v, Error: %v\n", elem.URL, elem.Working, elem.Error)
+		fmt.Printf("%s: Working: %v, Error: %v\n", proxy.MaskProxyPassword(elem.URL), elem.Working, elem.Error)
 	}
 }
