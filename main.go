@@ -3,14 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/go-resty/resty/v2"
 	"github.com/t34-dev/go-utils/pkg/proxy"
-	proxy_resty "github.com/t34-dev/go-utils/pkg/proxy/resty"
 	"go.uber.org/zap"
 	"time"
 )
 
-func GetCurrentIP(client proxy.HTTPClient) (string, error) {
-	resp, err := client.Get("https://httpbin.org/get")
+func GetCurrentIP(client proxy.Client) (string, error) {
+	resp, err := client.Get("https://httpbin.org/get", nil)
 	if err != nil {
 		return "", err
 	}
@@ -47,10 +47,12 @@ func main() {
 	}
 
 	// Создаем первый клиент
-	client1 := proxy_resty.NewRestyClient(
-		proxy_resty.WithTimeout(10*time.Second),
-		proxy_resty.WithRetryCount(3),
-		proxy_resty.WithRetryWaitTime(1*time.Second, 3*time.Second),
+	client1 := proxy.NewClient(
+		resty.New().
+			SetTimeout(10*time.Second).
+			SetRetryCount(3).
+			SetRetryWaitTime(1*time.Second).
+			SetRetryMaxWaitTime(3*time.Second),
 		proxy.WithProxy(proxies),
 		proxy.WithLogFunc(logFunc),
 	)
@@ -80,10 +82,12 @@ func main() {
 	}
 
 	// Создаем второй клиент только с рабочими прокси
-	client2 := proxy_resty.NewRestyClient(
-		proxy_resty.WithTimeout(10*time.Second),
-		proxy_resty.WithRetryCount(3),
-		proxy_resty.WithRetryWaitTime(1*time.Second, 5*time.Second),
+	client2 := proxy.NewClient(
+		resty.New().
+			SetTimeout(10*time.Second).
+			SetRetryCount(3).
+			SetRetryWaitTime(1*time.Second).
+			SetRetryMaxWaitTime(3*time.Second),
 		proxy.WithProxy(workingProxies),
 		proxy.WithLogFunc(logFunc),
 	)

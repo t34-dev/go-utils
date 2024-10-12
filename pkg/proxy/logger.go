@@ -1,13 +1,12 @@
-package proxy_resty
+package proxy
 
 import (
 	"fmt"
-	"github.com/t34-dev/go-utils/pkg/proxy"
 )
 
 type customLogger struct {
-	logFunc proxy.LogFunc
-	client  *Client
+	logFunc LogFunc
+	client  *client
 }
 
 func (l *customLogger) Errorf(format string, v ...interface{}) {}

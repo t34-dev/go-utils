@@ -1,25 +1,21 @@
 package proxy
 
 import (
+	"github.com/go-resty/resty/v2"
 	"net/url"
 	"strings"
 )
 
-// HTTPClient defines the interface for HTTP clients
-type HTTPClient interface {
-	Get(url string) (Response, error)
-	Post(url string, body interface{}) (Response, error)
-	Put(url string, body interface{}) (Response, error)
-	Delete(url string) (Response, error)
-	Patch(url string, body interface{}) (Response, error)
+// Client defines the interface for HTTP clients
+type Client interface {
+	R() *resty.Request
+	Client() *resty.Client
+	Get(url string, req *resty.Request) (*resty.Response, error)
+	Post(url string, req *resty.Request) (*resty.Response, error)
+	Put(url string, req *resty.Request) (*resty.Response, error)
+	Delete(url string, req *resty.Request) (*resty.Response, error)
+	Patch(url string, req *resty.Request) (*resty.Response, error)
 	GetProxyStatus() []ProxyStatus
-}
-
-// Response defines the interface for HTTP responses
-type Response interface {
-	StatusCode() int
-	Body() []byte
-	Header() map[string][]string
 }
 
 // ProxyStatus represents the status of a proxy
@@ -32,12 +28,12 @@ type ProxyStatus struct {
 // LogFunc defines the signature for the logging function
 type LogFunc func(level, msg, proxy string)
 
-// ClientOption is a function type to set options on the Client
-type ClientOption func(HTTPClient)
+// ClientOption is a function type to set options on the client
+type ClientOption func(Client)
 
 // WithProxy sets the proxies for the client
 func WithProxy(proxies []string) ClientOption {
-	return func(c HTTPClient) {
+	return func(c Client) {
 		if client, ok := c.(interface{ SetProxies([]string) }); ok {
 			client.SetProxies(proxies)
 		}
@@ -46,7 +42,7 @@ func WithProxy(proxies []string) ClientOption {
 
 // WithLogFunc sets the logging function for the client
 func WithLogFunc(logFunc LogFunc) ClientOption {
-	return func(c HTTPClient) {
+	return func(c Client) {
 		if client, ok := c.(interface{ SetLogFunc(LogFunc) }); ok {
 			client.SetLogFunc(logFunc)
 		}
@@ -54,7 +50,7 @@ func WithLogFunc(logFunc LogFunc) ClientOption {
 }
 
 // IsConnectionError проверка - ошибка в соединении?
-func IsConnectionError(err error) bool {
+func isConnectionError(err error) bool {
 	if strings.Contains(err.Error(), "Proxy Authentication Required") {
 		return true
 	}
