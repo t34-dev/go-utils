@@ -50,7 +50,7 @@ func main() {
 		//log.Info(fmt.Sprintf("[%s] %s: %s", level, proxy, msg))
 	}
 	debuggerMiddleware := func(method, url string, req *resty.Request, userData interface{}) {
-		fmt.Printf("DEBBUG: %s %s DATA:%+v UserData:%+v\n", method, req.URL, req.Body, userData)
+		fmt.Printf("DEBBUG: %s %s BODY:%+v UserData:%+v\n", method, req.URL, req.Body, userData)
 	}
 
 	// Создаем первый клиент
