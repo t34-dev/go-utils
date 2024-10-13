@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"github.com/go-resty/resty/v2"
+	"strings"
 	"sync"
 )
 
@@ -12,6 +13,7 @@ type client struct {
 	mu                sync.Mutex
 	currentProxyIndex int
 	logFunc           LogFunc
+	middlewares       []Middleware
 }
 
 func NewClient(cli *resty.Client, options ...ClientOption) Client {
@@ -19,6 +21,7 @@ func NewClient(cli *resty.Client, options ...ClientOption) Client {
 		client:            cli,
 		currentProxyIndex: -1,
 		logFunc:           func(level, msg, proxy string) {}, // Use a no-op log function by default
+		middlewares:       []Middleware{},
 	}
 
 	// Устанавливаем кастомную функцию условия повторной попытки
@@ -42,6 +45,10 @@ func (c *client) Client() *resty.Client {
 	return c.client
 }
 
+func (c *client) SetMiddlewares(middlewares []Middleware) {
+	c.middlewares = middlewares
+}
+
 // GetProxyStatus returns the status of all proxies
 func (c *client) GetProxyStatus() []ProxyStatus {
 	c.mu.Lock()
@@ -62,27 +69,27 @@ func (c *client) R() *resty.Request {
 	return c.client.R()
 }
 
-func (c *client) Get(url string, req *resty.Request) (*resty.Response, error) {
-	return c.doRequest("GET", url, req)
+func (c *client) Get(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
+	return c.doRequest("GET", url, req, userData)
 }
 
-func (c *client) Post(url string, req *resty.Request) (*resty.Response, error) {
-	return c.doRequest("POST", url, req)
+func (c *client) Post(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
+	return c.doRequest("POST", url, req, userData)
 }
 
-func (c *client) Put(url string, req *resty.Request) (*resty.Response, error) {
-	return c.doRequest("PUT", url, req)
+func (c *client) Put(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
+	return c.doRequest("PUT", url, req, userData)
 }
 
-func (c *client) Delete(url string, req *resty.Request) (*resty.Response, error) {
-	return c.doRequest("DELETE", url, req)
+func (c *client) Delete(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
+	return c.doRequest("DELETE", url, req, userData)
 }
 
-func (c *client) Patch(url string, req *resty.Request) (*resty.Response, error) {
-	return c.doRequest("PATCH", url, req)
+func (c *client) Patch(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
+	return c.doRequest("PATCH", url, req, userData)
 }
 
-func (c *client) doRequest(method, url string, req *resty.Request) (*resty.Response, error) {
+func (c *client) doRequest(method, url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
 	if c.client == nil {
 		return nil, fmt.Errorf("client is not initialized")
 	}
@@ -90,6 +97,16 @@ func (c *client) doRequest(method, url string, req *resty.Request) (*resty.Respo
 	if req != nil {
 		r = req
 	}
+	r.URL = c.client.BaseURL + url
+	if strings.HasPrefix(url, "http") || strings.HasPrefix(url, "https") {
+		r.URL = url
+	}
+
+	// use middleware
+	for _, middleware := range c.middlewares {
+		middleware(method, url, r, userData)
+	}
+
 	if len(c.proxies) == 0 {
 		return c.executeRequest(method, url, r)
 	} else {

@@ -10,11 +10,11 @@ import (
 type Client interface {
 	R() *resty.Request
 	Client() *resty.Client
-	Get(url string, req *resty.Request) (*resty.Response, error)
-	Post(url string, req *resty.Request) (*resty.Response, error)
-	Put(url string, req *resty.Request) (*resty.Response, error)
-	Delete(url string, req *resty.Request) (*resty.Response, error)
-	Patch(url string, req *resty.Request) (*resty.Response, error)
+	Get(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
+	Post(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
+	Put(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
+	Delete(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
+	Patch(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
 	GetProxyStatus() []ProxyStatus
 }
 
