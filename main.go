@@ -43,7 +43,10 @@ func main() {
 	log, _ := zap.NewDevelopment()
 	defer log.Sync()
 	logFunc := func(level, msg, proxy string) {
-		log.Info(fmt.Sprintf("[%s] %s: %s", level, proxy, msg))
+		//log.Info(fmt.Sprintf("[%s] %s: %s", level, proxy, msg))
+	}
+	debuggerMiddleware := func(method, url string, req *resty.Request) {
+		log.Info(fmt.Sprintf("Request: %s %s %+v", method, url, req.Body))
 	}
 
 	// Создаем первый клиент
@@ -55,6 +58,7 @@ func main() {
 			SetRetryMaxWaitTime(3*time.Second),
 		proxy.WithProxy(proxies),
 		proxy.WithLogFunc(logFunc),
+		proxy.WithMiddleware(debuggerMiddleware),
 	)
 
 	// Выполняем запрос с первым клиентом
@@ -70,7 +74,7 @@ func main() {
 	fmt.Println("==========")
 	fmt.Println("Proxy status after client1:")
 	for _, elem := range proxyStatus {
-		fmt.Printf("%s: Working: %v, Error: %v\n", proxy.MaskProxyPassword(elem.URL), elem.Working, elem.Error)
+		fmt.Printf("%s: Working: %v, Error: %#v\n", proxy.MaskProxyPassword(elem.URL), elem.Working, elem.Error)
 	}
 
 	// Формируем список рабочих прокси
@@ -90,6 +94,7 @@ func main() {
 			SetRetryMaxWaitTime(3*time.Second),
 		proxy.WithProxy(workingProxies),
 		proxy.WithLogFunc(logFunc),
+		proxy.WithMiddleware(debuggerMiddleware),
 	)
 
 	// Выполняем запрос со вторым клиентом
@@ -107,4 +112,18 @@ func main() {
 	for _, elem := range finalProxyStatus {
 		fmt.Printf("%s: Working: %v, Error: %v\n", proxy.MaskProxyPassword(elem.URL), elem.Working, elem.Error)
 	}
+
+	fmt.Println("==========")
+	fmt.Println("Test middleware:")
+	name := struct {
+		Name string
+		Age  int
+	}{
+		Name: "John",
+		Age:  30,
+	}
+	req := client2.R()
+	req.SetBody(name)
+	resp, err := client2.Post("https://jsonplaceholder.typicode.com/posts", req)
+	fmt.Println(resp, err)
 }

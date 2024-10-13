@@ -12,6 +12,7 @@ type client struct {
 	mu                sync.Mutex
 	currentProxyIndex int
 	logFunc           LogFunc
+	middlewares       []Middleware
 }
 
 func NewClient(cli *resty.Client, options ...ClientOption) Client {
@@ -19,6 +20,7 @@ func NewClient(cli *resty.Client, options ...ClientOption) Client {
 		client:            cli,
 		currentProxyIndex: -1,
 		logFunc:           func(level, msg, proxy string) {}, // Use a no-op log function by default
+		middlewares:       []Middleware{},
 	}
 
 	// Устанавливаем кастомную функцию условия повторной попытки
@@ -40,6 +42,10 @@ func NewClient(cli *resty.Client, options ...ClientOption) Client {
 
 func (c *client) Client() *resty.Client {
 	return c.client
+}
+
+func (c *client) SetMiddlewares(middlewares []Middleware) {
+	c.middlewares = middlewares
 }
 
 // GetProxyStatus returns the status of all proxies
@@ -90,6 +96,11 @@ func (c *client) doRequest(method, url string, req *resty.Request) (*resty.Respo
 	if req != nil {
 		r = req
 	}
+	// use middleware
+	for _, middleware := range c.middlewares {
+		middleware(method, url, r)
+	}
+
 	if len(c.proxies) == 0 {
 		return c.executeRequest(method, url, r)
 	} else {
