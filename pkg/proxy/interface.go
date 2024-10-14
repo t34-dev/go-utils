@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"github.com/go-resty/resty/v2"
 	"net/url"
 	"strings"
@@ -10,11 +11,11 @@ import (
 type Client interface {
 	R() *resty.Request
 	Client() *resty.Client
-	Get(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
-	Post(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
-	Put(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
-	Delete(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
-	Patch(url string, req *resty.Request, userData interface{}) (*resty.Response, error)
+	Get(ctx context.Context, url string, req *resty.Request) (*resty.Response, error)
+	Post(ctx context.Context, url string, req *resty.Request) (*resty.Response, error)
+	Put(ctx context.Context, url string, req *resty.Request) (*resty.Response, error)
+	Delete(ctx context.Context, url string, req *resty.Request) (*resty.Response, error)
+	Patch(ctx context.Context, url string, req *resty.Request) (*resty.Response, error)
 	GetProxyStatus() []ProxyStatus
 }
 

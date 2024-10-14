@@ -1,11 +1,12 @@
 package proxy
 
 import (
+	"context"
 	"github.com/go-resty/resty/v2"
 )
 
 // Middleware defines the middleware function
-type Middleware func(method, url string, req *resty.Request, userData interface{})
+type Middleware func(ctx context.Context, method, url string, req *resty.Request)
 
 // WithMiddleware добавляет middleware к клиенту
 func WithMiddleware(middlewares ...Middleware) ClientOption {

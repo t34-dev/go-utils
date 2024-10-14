@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/go-resty/resty/v2"
@@ -9,12 +10,14 @@ import (
 	"time"
 )
 
+const ctxVal = "VAL"
+
 type User struct {
 	Name string
 }
 
-func GetCurrentIP(client proxy.Client) (string, error) {
-	resp, err := client.Get("https://httpbin.org/get", nil, &User{Name: "test"})
+func GetCurrentIP(ctx context.Context, client proxy.Client) (string, error) {
+	resp, err := client.Get(ctx, "https://httpbin.org/get", nil)
 	if err != nil {
 		return "", err
 	}
@@ -33,6 +36,7 @@ func GetCurrentIP(client proxy.Client) (string, error) {
 }
 
 func main() {
+	ctx := context.Background()
 	proxies := []string{
 		"socks5://4b077H:qslYR7aFsO@46.8.56.219:1052",
 		"socks5://4b077H:qslYR7aFsO1@46.8.56.219:1051",
@@ -49,7 +53,8 @@ func main() {
 	logFunc := func(level, msg, proxy string) {
 		//log.Info(fmt.Sprintf("[%s] %s: %s", level, proxy, msg))
 	}
-	debuggerMiddleware := func(method, url string, req *resty.Request, userData interface{}) {
+	debuggerMiddleware := func(ctx context.Context, method, url string, req *resty.Request) {
+		userData := ctx.Value(ctxVal)
 		fmt.Printf("DEBBUG: %s %s BODY:%+v UserData:%+v\n", method, req.URL, req.Body, userData)
 	}
 
@@ -66,7 +71,7 @@ func main() {
 	)
 
 	// Выполняем запрос с первым клиентом
-	ip, err := GetCurrentIP(client1)
+	ip, err := GetCurrentIP(context.WithValue(ctx, ctxVal, &User{Name: "FIRST1"}), client1)
 	if err != nil {
 		fmt.Printf("Error with client1: %v\n", err)
 	} else {
@@ -102,7 +107,7 @@ func main() {
 	)
 
 	// Выполняем запрос со вторым клиентом
-	ip, err = GetCurrentIP(client2)
+	ip, err = GetCurrentIP(context.WithValue(ctx, ctxVal, &User{Name: "SECOND2"}), client2)
 	if err != nil {
 		fmt.Printf("Error with client2: %v\n", err)
 	} else {
@@ -128,6 +133,6 @@ func main() {
 	}
 	req := client2.R()
 	req.SetBody(name)
-	resp, err := client2.Post("https://jsonplaceholder.typicode.com/posts", req, &name)
+	resp, err := client2.Post(context.WithValue(ctx, ctxVal, &name), "https://jsonplaceholder.typicode.com/posts", req)
 	fmt.Println(resp, err)
 }

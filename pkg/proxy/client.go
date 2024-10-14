@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"github.com/go-resty/resty/v2"
 	"strings"
@@ -69,27 +70,27 @@ func (c *client) R() *resty.Request {
 	return c.client.R()
 }
 
-func (c *client) Get(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
-	return c.doRequest("GET", url, req, userData)
+func (c *client) Get(ctx context.Context, url string, req *resty.Request) (*resty.Response, error) {
+	return c.doRequest(ctx, "GET", url, req)
 }
 
-func (c *client) Post(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
-	return c.doRequest("POST", url, req, userData)
+func (c *client) Post(ctx context.Context, url string, req *resty.Request) (*resty.Response, error) {
+	return c.doRequest(ctx, "POST", url, req)
 }
 
-func (c *client) Put(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
-	return c.doRequest("PUT", url, req, userData)
+func (c *client) Put(ctx context.Context, url string, req *resty.Request) (*resty.Response, error) {
+	return c.doRequest(ctx, "PUT", url, req)
 }
 
-func (c *client) Delete(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
-	return c.doRequest("DELETE", url, req, userData)
+func (c *client) Delete(ctx context.Context, url string, req *resty.Request) (*resty.Response, error) {
+	return c.doRequest(ctx, "DELETE", url, req)
 }
 
-func (c *client) Patch(url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
-	return c.doRequest("PATCH", url, req, userData)
+func (c *client) Patch(ctx context.Context, url string, req *resty.Request) (*resty.Response, error) {
+	return c.doRequest(ctx, "PATCH", url, req)
 }
 
-func (c *client) doRequest(method, url string, req *resty.Request, userData interface{}) (*resty.Response, error) {
+func (c *client) doRequest(ctx context.Context, method, url string, req *resty.Request) (*resty.Response, error) {
 	if c.client == nil {
 		return nil, fmt.Errorf("client is not initialized")
 	}
@@ -104,7 +105,7 @@ func (c *client) doRequest(method, url string, req *resty.Request, userData inte
 
 	// use middleware
 	for _, middleware := range c.middlewares {
-		middleware(method, url, r, userData)
+		middleware(ctx, method, url, r)
 	}
 
 	if len(c.proxies) == 0 {
