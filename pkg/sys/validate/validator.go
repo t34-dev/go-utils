@@ -8,6 +8,9 @@ func Validate(ctx context.Context, conds ...Condition) error {
 	ve := NewValidationErrors()
 
 	for _, c := range conds {
+		if c == nil {
+			continue
+		}
 		err := c(ctx)
 		if err != nil {
 			if IsValidationError(err) {
